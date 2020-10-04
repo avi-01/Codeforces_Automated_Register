@@ -146,7 +146,8 @@ async function getContests() {
         contestsDetails.push(contestDetails);
       });
 
-      console.log("ContestDetails:- " + contestsDetails);
+      console.log("ContestDetails:- ");
+      console.log(contestsDetails);
 
       checkContest(contestsDetails);
     })
@@ -170,7 +171,7 @@ async function checkContest(contestsDetails) {
 
     const contestRegUrl = baseUrl + contestDetails.link;
 
-    console.log(contestRegUrl);
+    console.log("ContestUrl:-" + contestRegUrl);
 
     const options = {
       method: "get",
@@ -203,8 +204,10 @@ async function checkContest(contestsDetails) {
 
   await Promise.all(contestsRegPromise);
 
-  console.log("TeamContest Detail:- " + teamContestsDetail);
-  console.log("RegisterContest Detail:- " + registeredContestsDetails);
+  console.log("TeamContest Detail:- ")
+  console.log(teamContestsDetail);
+  console.log("RegisterContest Detail:- ");
+  console.log(registeredContestsDetails);
 
   prepareEmail(teamContestsDetail, registeredContestsDetails);
 }

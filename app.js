@@ -9,7 +9,7 @@ const emailHtmlBody = require("./emailHtmlBody")
 const PORT = process.env.PORT || 5000;
 
 const baseUrl = "https://codeforces.com";
-const Email = "avnishmay@gmail.com" || process.env.EMAIL;
+const Email = process.env.EMAIL;
 const EMAIL_DOMAIN = process.env.DOMAIN_NAME;
 const EMAIL_mg = mailgun({
   apiKey: process.env.MAILGUN_APIKEY,

@@ -6,7 +6,7 @@ const http = require("http");
 const mailgun = require("mailgun-js");
 const emailHtmlBody = require("./emailHtmlBody")
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3002;
 
 const baseUrl = "https://codeforces.com";
 const Email = process.env.EMAIL;

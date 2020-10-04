@@ -15,8 +15,6 @@ const EMAIL_mg = mailgun({
   domain: EMAIL_DOMAIN,
 });
 
-
-// TODO: Add user data in process env.
 const user = {
   handleOrEmail: process.env.USERNAME,
   password: process.env.PASSWORD,
@@ -30,10 +28,10 @@ let session = {
 console.log("Welcome to Codeforces Automated Register");
 
 
-sendEmail("Testing the app","Hello from Codeforces Login",Email)
+sendEmail("Testing the app","Hello from Codeforces Login Server",Email)
 
 // setInterval(() => {
-//   main();
+  main();
 // }, 1000 * 60 * 2);
 
 async function main() {
@@ -119,6 +117,7 @@ async function registerContests() {
   });
 }
 
+// TODO: Check for individual and team contests
 async function registerContest(contestLink) {
   const contestUrl = baseUrl + contestLink;
 
@@ -168,7 +167,7 @@ function sendEmail(subject, body, email) {
       handlerError(error);
     } else {
       console.log(`Mail with subject "${subject}" sent successfully to ${email}`);
-      console.log(body);
+      // console.log(body);
     }
   });
 }

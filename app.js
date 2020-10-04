@@ -146,7 +146,7 @@ async function getContests() {
         contestsDetails.push(contestDetails);
       });
 
-      console.log(contestsDetails);
+      console.log("ContestDetails:- " + contestsDetails);
 
       checkContest(contestsDetails);
     })
@@ -203,8 +203,8 @@ async function checkContest(contestsDetails) {
 
   await Promise.all(contestsRegPromise);
 
-  console.log(teamContestsDetail);
-  console.log(registeredContestsDetails);
+  console.log("TeamContest Detail:- " + teamContestsDetail);
+  console.log("RegisterContest Detail:- " + registeredContestsDetails);
 
   prepareEmail(teamContestsDetail, registeredContestsDetails);
 }
@@ -218,7 +218,7 @@ function handleTeamContest(contestDetails) {
 async function registerContest(contestDetails) {
   const contestRegUrl = baseUrl + contestDetails.link;
 
-  console.log(contestRegUrl);
+  console.log("RegisterContest:- " + contestRegUrl);
 
   const form = new FormData();
   form.append("action", "formSubmitted");

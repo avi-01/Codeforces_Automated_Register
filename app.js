@@ -25,13 +25,29 @@ let session = {
   cookie: null,
 };
 
+let notRegContestId = [];
+
+const months = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
 console.log("Welcome to Codeforces Automated Register");
 
-
-sendEmail("Testing the app","Hello from Codeforces Login Server",Email)
+// sendEmail("Testing the app","Hello from Codeforces Login Server",Email)
 
 // setInterval(() => {
-  main();
+main();
 // }, 1000 * 60 * 2);
 
 async function main() {
@@ -50,6 +66,8 @@ function getCsrfAndJid() {
 
       const $ = cheerio.load(res.data);
       session.csrf_token = $("meta[name='X-Csrf-Token']")[0].attribs["content"];
+
+      // console.log(session)
     })
     .catch((err) => {
       handlerError(err);
@@ -100,28 +118,87 @@ async function registerContests() {
     },
   };
 
-  return axios(options).then((res) => {
-    const $ = cheerio.load(res.data);
+  return axios(options)
+    .then((res) => {
+      const $ = cheerio.load(res.data);
 
-    const contestDivs = $("a.red-link");
+      const contestDivs = $("a.red-link");
 
-    let contestRegLinks = [];
+      let contestsDetails = [];
 
-    contestDivs.each((_, contest) => {
-      contestRegLinks.push(contest["attribs"]["href"]);
-    });
+      contestDivs.each((_, contest) => {
+        const contestLink = contest["attribs"]["href"];
+        const contestId = contestLink.split("/")[2];
 
-    contestRegLinks.forEach((contestLink) => {
-      registerContest(contestLink);
-    });
-  });
+        if (notRegContestId.includes(contestId)) {
+          return;
+        }
+
+        const contestRow = $(`tr[data-contestid=${contestId}] td`);
+
+        const contestName = $(contestRow["0"]).text().trim();
+        const contestTime = getLocalTime($(contestRow["2"]).text().trim());
+
+        const contestDetails = {
+          id: contestId,
+          link: contestLink,
+          name: contestName,
+          time: contestTime,
+        };
+
+        contestsDetails.push(contestDetails);
+
+        console.log(contestDetails);
+      });
+
+      console.log(contestsDetails);
+
+      contestsDetails.forEach((contestDetails) => {
+        checkContest(contestDetails);
+      });
+    })
+    .catch((error) => handlerError(error));
 }
 
 // TODO: Check for individual and team contests
-async function registerContest(contestLink) {
-  const contestUrl = baseUrl + contestLink;
+async function checkContest(contestDetails) {
+  const contestRegUrl = baseUrl + contestDetails.link;
 
-  console.log(contestUrl);
+  console.log(contestRegUrl);
+
+  const options = {
+    method: "get",
+    url: contestRegUrl,
+    headers: {
+      Cookie: session.cookie,
+    },
+  };
+
+  let rejectedContestBody = []
+  let registeredContestBody = []
+
+  return axios(options).then((res) => {
+    const $ = cheerio.load(res.data);
+
+    const takePartAs = $("input#takePartAsTeamInput");
+
+    // if (takePartAs.length != 0) {
+    //   notRegContestId.push(contestDetails.id);
+    //   handleTeamContest(contestDetails);
+    // } else {
+      registerContest(contestDetails);
+    // }
+  });
+}
+
+function handleTeamContest(contestDetails) {
+}
+
+// TODO: Send Email after registration
+async function registerContest(contestDetails) {
+  const contestRegUrl = baseUrl + contestDetails.link;
+
+  console.log(contestRegUrl);
 
   const data = {
     csrf_token: session.csrf_token,
@@ -137,7 +214,7 @@ async function registerContest(contestLink) {
 
   const options = {
     method: "POST",
-    url: contestUrl,
+    url: contestRegUrl,
     headers: {
       ...form.getHeaders(),
       Cookie: session.cookie,
@@ -145,19 +222,24 @@ async function registerContest(contestLink) {
     data: form,
   };
 
-  // axios(options)
-  //   .then(function (res) {
-  //     console.log(`Registered successfully to contest ${contestLink}!!!`);
-  //   })
-  //   .catch(function (error) {
-  //     handlerError();
-  //   });
-}
+  axios(options)
+    .then(function (res) {
+      const $ = cheerio.load(res.data)
+      
+      if($("input[name=takePartAs]").length != 0) {
+        
+      }
 
+      console.log(`Registered successfully to contest ${contestDetails.link}!!!`);
+    })
+    .catch(function (error) {
+      handlerError(error);
+    });
+}
 
 function sendEmail(subject, body, email) {
   const data = {
-    from: "Stats <status@avinish.me>",
+    from: "Codeforces Stats <status@avinish.me>",
     to: email,
     subject: subject,
     text: body,
@@ -166,10 +248,26 @@ function sendEmail(subject, body, email) {
     if (error) {
       handlerError(error);
     } else {
-      console.log(`Mail with subject "${subject}" sent successfully to ${email}`);
-      // console.log(body);
+      console.log(
+        `Mail with subject "${subject}" sent successfully to ${email}`
+      );
     }
   });
+}
+
+function getLocalTime(contestTime) {
+  const [date, time] = contestTime.split(" ");
+  const [hours, minutes] = time.split(":");
+  const [month, day, year] = date.split("/");
+
+  const monthIndex = months.findIndex((storedMonth) => storedMonth == month);
+  // console.log(hours, minutes, month, date, year, monthIndex);
+
+  var localTime = new Date(year, monthIndex, day, hours, minutes, 0, 0);
+  localTime.setHours(localTime.getHours() + 2);
+  localTime.setMinutes(localTime.getMinutes() + 30);
+
+  return localTime.toString();
 }
 
 function handlerError(error) {
@@ -177,11 +275,11 @@ function handlerError(error) {
   console.log(error);
 }
 
-http
-  .createServer(function (req, res) {
-    console.log("Server is listening to PORT: " + PORT);
-    res.writeHead(200, { "Content-Type": "text/plain" });
-    res.write("Hello World!");
-    res.end();
-  })
-  .listen(PORT);
+// http
+//   .createServer(function (req, res) {
+//     console.log("Server is listening to PORT: " + PORT);
+//     res.writeHead(200, { "Content-Type": "text/plain" });
+//     res.write("Hello World!");
+//     res.end();
+//   })
+//   .listen(PORT);

@@ -4,12 +4,13 @@ const qs = require("querystring");
 const FormData = require("form-data");
 const http = require("http");
 const mailgun = require("mailgun-js");
+const emailHtmlBody = require("./emailHtmlBody")
 
 const PORT = process.env.PORT || 5000;
 
 const baseUrl = "https://codeforces.com";
-const Email = process.env.EMAIL;
-const EMAIL_DOMAIN = "mail.avinish.me";
+const Email = "avnishmay@gmail.com" || process.env.EMAIL;
+const EMAIL_DOMAIN = process.env.DOMAIN_NAME;
 const EMAIL_mg = mailgun({
   apiKey: process.env.MAILGUN_APIKEY,
   domain: EMAIL_DOMAIN,
@@ -25,7 +26,7 @@ let session = {
   cookie: null,
 };
 
-let notRegContestId = [];
+let teamContestId = [];
 
 const months = [
   "Jan",
@@ -44,18 +45,18 @@ const months = [
 
 console.log("Welcome to Codeforces Automated Register");
 
-// sendEmail("Testing the app","Hello from Codeforces Login Server",Email)
+main()
 
-// setInterval(() => {
+setInterval(() => {
 main();
-// }, 1000 * 60 * 2);
+}, 1000 * 60 * 60 * 6);
 
 async function main() {
   await getCsrfAndJid();
 
   await login();
 
-  await registerContests();
+  getContests();
 }
 
 function getCsrfAndJid() {
@@ -107,7 +108,7 @@ function login() {
     });
 }
 
-async function registerContests() {
+async function getContests() {
   const contestsUrl = baseUrl + "/contests";
 
   const options = {
@@ -130,10 +131,6 @@ async function registerContests() {
         const contestLink = contest["attribs"]["href"];
         const contestId = contestLink.split("/")[2];
 
-        if (notRegContestId.includes(contestId)) {
-          return;
-        }
-
         const contestRow = $(`tr[data-contestid=${contestId}] td`);
 
         const contestName = $(contestRow["0"]).text().trim();
@@ -153,58 +150,78 @@ async function registerContests() {
 
       console.log(contestsDetails);
 
-      contestsDetails.forEach((contestDetails) => {
-        checkContest(contestDetails);
-      });
+      checkContest(contestsDetails);
     })
     .catch((error) => handlerError(error));
 }
 
-// TODO: Check for individual and team contests
-async function checkContest(contestDetails) {
-  const contestRegUrl = baseUrl + contestDetails.link;
+async function checkContest(contestsDetails) {
+  const oldNotRegContestId = [...teamContestId];
+  teamContestId = [];
 
-  console.log(contestRegUrl);
+  let teamContestsDetail = [];
+  let registeredContestsDetails = [];
 
-  const options = {
-    method: "get",
-    url: contestRegUrl,
-    headers: {
-      Cookie: session.cookie,
-    },
-  };
+  let contestsRegPromise = [];
 
-  let rejectedContestBody = []
-  let registeredContestBody = []
+  contestsDetails.forEach((contestDetails) => {
+    if (oldNotRegContestId.includes(contestDetails.id)) {
+      teamContestId.push(contestDetails.id);
+      return;
+    }
 
-  return axios(options).then((res) => {
-    const $ = cheerio.load(res.data);
+    const contestRegUrl = baseUrl + contestDetails.link;
 
-    const takePartAs = $("input#takePartAsTeamInput");
+    console.log(contestRegUrl);
 
-    // if (takePartAs.length != 0) {
-    //   notRegContestId.push(contestDetails.id);
-    //   handleTeamContest(contestDetails);
-    // } else {
-      registerContest(contestDetails);
-    // }
+    const options = {
+      method: "get",
+      url: contestRegUrl,
+      headers: {
+        Cookie: session.cookie,
+      },
+    };
+
+    const contestRegPromise = axios(options)
+      .then(async (res) => {
+        const $ = cheerio.load(res.data);
+        const takePartAs = $("input#takePartAsTeamInput");
+
+        if (takePartAs.length != 0) {
+          console.log(contestDetails.id);
+          const teamContestBody = handleTeamContest(contestDetails);
+          teamContestsDetail.push(teamContestBody);
+        } else {
+          const registeredContestBody = await registerContest(contestDetails);
+          if (registeredContestBody)
+            registeredContestsDetails.push(registeredContestBody);
+        }
+      })
+      .catch((error) => {
+        handlerError(error);
+      });
+
+    contestsRegPromise.push(contestRegPromise);
   });
+
+  await Promise.all(contestsRegPromise);
+
+  console.log(teamContestsDetail);
+  console.log(registeredContestsDetails);
+
+  prepareEmail(teamContestsDetail, registeredContestsDetails);
 }
 
 function handleTeamContest(contestDetails) {
+  teamContestId.push(contestDetails.id);
+
+  return contestDetails;
 }
 
-// TODO: Send Email after registration
 async function registerContest(contestDetails) {
   const contestRegUrl = baseUrl + contestDetails.link;
 
   console.log(contestRegUrl);
-
-  const data = {
-    csrf_token: session.csrf_token,
-    action: "formSubmitted",
-    takePartAs: "personal",
-  };
 
   const form = new FormData();
   form.append("action", "formSubmitted");
@@ -222,27 +239,48 @@ async function registerContest(contestDetails) {
     data: form,
   };
 
-  axios(options)
+  return axios(options)
     .then(function (res) {
-      const $ = cheerio.load(res.data)
-      
-      if($("input[name=takePartAs]").length != 0) {
-        
+      const $ = cheerio.load(res.data);
+
+      if ($("input[name=takePartAs]").length != 0) {
+        console.log(
+          `Registration fail for the contest ${contestDetails.name}!!!`
+        );
+        return null;
       }
 
-      console.log(`Registered successfully to contest ${contestDetails.link}!!!`);
+      console.log(
+        `Registered successfully to contest ${contestDetails.name}!!!`
+      );
+
+      return contestDetails;
     })
     .catch(function (error) {
       handlerError(error);
     });
 }
 
+function prepareEmail(teamContestsDetail, registeredContestsDetails) {
+  if (teamContestsDetail.length == 0 && registeredContestsDetails.length == 0) {
+    return;
+  }
+
+  const subject = "Codeforces Contests";
+
+  const body = emailHtmlBody(teamContestsDetail, registeredContestsDetails);
+
+  console.log(body)
+
+  sendEmail(subject, body, Email);
+}
+
 function sendEmail(subject, body, email) {
   const data = {
-    from: "Codeforces Stats <status@avinish.me>",
+    from: "Codeforces Stats <stats@mail.avinish.me>",
     to: email,
     subject: subject,
-    text: body,
+    html: body,
   };
   EMAIL_mg.messages().send(data, function (error, body) {
     if (error) {
@@ -251,6 +289,7 @@ function sendEmail(subject, body, email) {
       console.log(
         `Mail with subject "${subject}" sent successfully to ${email}`
       );
+      console.log(body);
     }
   });
 }
@@ -267,19 +306,24 @@ function getLocalTime(contestTime) {
   localTime.setHours(localTime.getHours() + 2);
   localTime.setMinutes(localTime.getMinutes() + 30);
 
-  return localTime.toString();
+  var stringTime = `${localTime.getHours()}:${localTime.getMinutes()} ${localTime.getDate()}/${
+    months[localTime.getMonth()]
+  }/${localTime.getFullYear()}`;
+
+  return stringTime;
 }
+
 
 function handlerError(error) {
   console.log("Got an error.");
   console.log(error);
 }
 
-// http
-//   .createServer(function (req, res) {
-//     console.log("Server is listening to PORT: " + PORT);
-//     res.writeHead(200, { "Content-Type": "text/plain" });
-//     res.write("Hello World!");
-//     res.end();
-//   })
-//   .listen(PORT);
+http
+  .createServer(function (req, res) {
+    console.log("Server is listening to PORT: " + PORT);
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.write("Hello World!");
+    res.end();
+  })
+  .listen(PORT);

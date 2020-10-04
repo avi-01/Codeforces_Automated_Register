@@ -49,7 +49,7 @@ main()
 
 setInterval(() => {
 main();
-}, 1000 * 60 * 2);
+}, 1000 * 60 * 60 * 12);
 
 async function main() {
   await getCsrfAndJid();

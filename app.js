@@ -144,8 +144,6 @@ async function getContests() {
         };
 
         contestsDetails.push(contestDetails);
-
-        console.log(contestDetails);
       });
 
       console.log(contestsDetails);
@@ -188,7 +186,6 @@ async function checkContest(contestsDetails) {
         const takePartAs = $("input#takePartAsTeamInput");
 
         if (takePartAs.length != 0) {
-          console.log(contestDetails.id);
           const teamContestBody = handleTeamContest(contestDetails);
           teamContestsDetail.push(teamContestBody);
         } else {
@@ -270,7 +267,7 @@ function prepareEmail(teamContestsDetail, registeredContestsDetails) {
 
   const body = emailHtmlBody(teamContestsDetail, registeredContestsDetails);
 
-  console.log(body)
+  // console.log(body)
 
   sendEmail(subject, body, Email);
 }
@@ -289,7 +286,7 @@ function sendEmail(subject, body, email) {
       console.log(
         `Mail with subject "${subject}" sent successfully to ${email}`
       );
-      console.log(body);
+      // console.log(body);
     }
   });
 }
